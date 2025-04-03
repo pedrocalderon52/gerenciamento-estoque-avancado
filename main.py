@@ -3,6 +3,7 @@ import bcrypt
 import os
 import sys
 import datetime
+import csv
 from time import sleep
 
 
@@ -46,11 +47,14 @@ cursor.execute("""
 
 permissoes = {'admin': range(1, 8), 'editor': range(1, 7), 'leitor': {2, 5, 6}}
 
+listar_csv = lambda arquivos: [arquivo for arquivo in arquivos if arquivo.endswith(".csv")]
+
 def loading():
     for _ in range(135):
         print(".", end="")
         sleep(0.05)
     print("\n\n")
+
 
 def input_dados(modo, adm = False):
     match modo:
@@ -115,8 +119,7 @@ def input_dados(modo, adm = False):
                 permissao = 'leitor'
             return nome_usuario, senha, permissao
 
-                    
-            
+                           
 def adicionar_usuario(nome_usuario_atual, adm = False):
     nome_usuario_novo, senha, permissao = input_dados('add_usuario', adm=adm)
 
@@ -139,6 +142,46 @@ def adicionar_usuario(nome_usuario_atual, adm = False):
     if not adm:
         return nome_usuario_novo, permissao
 
+
+def importar_csv():
+
+    lista_arquivos = listar_csv(os.listdir())
+    print("De qual arquivo deseja importar o nome e o preço? (Digite o número) \n\n")
+    for i, nome_arquivo in enumerate(lista_arquivos):
+        print(f"{i+1}. {nome_arquivo}")
+
+    
+    try:
+        arquivo_para_importar = lista_arquivos[int(input()) - 1]
+    except:
+        print("Não foi possível concluir a operação")
+        return
+    
+    # continuar depois
+
+
+def exportar_csv():
+    """
+    Exporta a base de produtos como um arquivo csv para a pasta relatorios_de_estoque
+    Padrão de nomenclatura: REL(num_relatorio)_(ano)_(mes)_(dia)
+    Ex.: REL0001_2025_04_03 
+    
+    """
+    data_acao = datetime.datetime.now()
+    data_relatorio = data_acao.strftime("%Y_%m_%d")
+
+    path_relatorios = os.path.join(os.getcwd(), "relatorios_de_estoque") # cria um path para a pasta de relatórios
+    os.makedirs(path_relatorios, exist_ok=True)
+
+    num_relatorios = len(os.listdir(path_relatorios)) + 1 # verifica quantos relatórios tem
+
+    cursor.execute("SELECT * FROM produtos")
+    conexao.commit()
+
+    with open(f"{path_relatorios}/REL{(str(num_relatorios)).zfill(4)}_{data_relatorio}.csv", 'w', newline='', encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["ID", "Produto", "Quantidade", "Preço"])
+        writer.writerows(cursor.fetchall())
 
 
 
@@ -318,7 +361,8 @@ def area_do_admin(nome_usuario):
         2. Ver tabela de usuários
         3. Remover Usuário
         4. Ver tabela de logs       
-        5. Voltar ao menu principal            
+        5. Voltar ao menu principal     
+        6. Importar arquivo csv para base de produtos     
                             
             """))
 
@@ -336,6 +380,8 @@ def area_do_admin(nome_usuario):
                     listar_logs()
                 case 5:
                     return
+                case 6:
+                    importar_csv()
                 case _:
                     print("\nDigite uma opção válida!!\n")
         except:
@@ -360,7 +406,7 @@ def main() -> None:
     conexao.commit()
     if registro:
         senha_criptografada, permissao = registro
-        # loading()
+        loading()
         if bcrypt.checkpw(senha.encode(), senha_criptografada):
             login = True
             print(f"Bem vindo, {nome_usuario}! Login concluído com sucesso!")
@@ -413,30 +459,28 @@ def main() -> None:
                 case 6: 
                     break
                 case 7:
-                    # loading()
+                    loading()
                     area_do_admin(nome_usuario)
                 case _:
                     print("Digite uma opção válida")
                 
 
-    print("Tchau")
-
-
-def popopop():
-    senha = "C4Ldwer0NS3nh4ssecreta"
-    senha_criptografada = bcrypt.hashpw(senha.encode(), bcrypt.gensalt())
-
-    cursor.execute(f"""
-        INSERT INTO usuarios (nome_usuario, senha, permissao)
-        VALUES
-        ('pedro_calderon', ?, 'admin');
-    """, (senha_criptografada, ))
-    conexao.commit()
+    print("Tchau") # mensagem de login mais bonita
           
 
 if __name__ == "__main__":
-    main()
+    exportar_csv()
+    #main()
+    ...
 
 conexao.close()
-# usuario: professor_fabio
+
+"""with open("products.csv", newline='') as file:
+    reader = list(csv.reader(file))
+    for row in reader[1:]:
+        print(f"{row[1]}: ${row[4]}")"""
+# usuario 1: pedro_calderon
+# senha: C4Ldwer0NS3nh4ssecreta 
+
+# usuario 2: professor_fabio
 # senha: prof_fabio_senha
