@@ -77,41 +77,6 @@ def input_dados(modo, adm = False):
                     print("erro, insira um preco válido")
 
             return nome, quantidade, preco
-                
-        case 'u':
-            while True:
-                try:
-                    id = int(input(f"Digite o ID do produto que deseja atualizar:\n"))
-                    break
-                except:
-                    print("erro, insira um ID válido")
-
-
-            while True:
-                nome = input("Digite o novo nome do seu produto:\n")
-                if len(nome) <= 255:
-                    break
-                else:
-                    print("Nome muito longo! Digite um nome de 0 a 255 caracteres")
-
-
-            while True:
-                try:
-                    quantidade = int(input(f"Digite a nova quantidade de {nome}:\n"))
-                    if quantidade < 0: 
-                        raise Exception("Quantidade negativa")
-                    break
-                except:
-                    print("Erro, insira uma quantidade válida")
-
-            while True:
-                try:
-                    preco = float(input(f"Digite o novo preco de {nome}:\n"))
-                    break
-                except:
-                    print("erro, insira um preco válido")
-
-            return id, nome, quantidade, preco
         
         case 'd':
             while True:
@@ -152,8 +117,8 @@ def input_dados(modo, adm = False):
 
                     
             
-def adicionar_usuario(nome_usuario, adm = False):
-    nome_usuario, senha, permissao = input_dados('add_usuario', adm=adm)
+def adicionar_usuario(nome_usuario_atual, adm = False):
+    nome_usuario_novo, senha, permissao = input_dados('add_usuario', adm=adm)
 
     senha_criptografada = bcrypt.hashpw(senha.encode(), bcrypt.gensalt())
 
@@ -161,12 +126,18 @@ def adicionar_usuario(nome_usuario, adm = False):
         cursor.execute("""
             INSERT INTO usuarios(nome_usuario, senha, permissao)
             VALUES (?, ?, ?)
-    """, (nome_usuario, senha_criptografada, permissao))
-        adicionar_log("Adicionar usuário", nome_usuario)
+    """, (nome_usuario_novo, senha_criptografada, permissao))
+        if adm:
+            adicionar_log("Adicionar usuário", nome_usuario_atual)
+        else:
+            adicionar_log("Cadastrar usuário", nome_usuario_novo)
     except sqlite3.IntegrityError:
         print("\nUsuário já existente no sistema. ")
     
     conexao.commit()
+
+    if not adm:
+        return nome_usuario_novo, permissao
 
 
 
@@ -195,6 +166,19 @@ def listar_produtos():
     for produto in cursor.fetchall():
         print(f"| {produto[0]:^30} | {produto[1]:^30} | {f'R$ {produto[3]:.2f}'.replace('.', ','):^30} | {produto[2]:^30} |")
     print("-" * 133)
+    
+    input("\nPressione enter para voltar ao menu principal")
+    conexao.commit()
+
+
+def listar_logs():
+    cursor.execute("SELECT * FROM logs")
+    print("\n\n\n" + "-" * 136)
+    print(f"| {"ID":^20} | {"Ação":^35} | {"Usuário":^35} | {"Data":^15} | {"Hora":^15} |")
+    print("-" * 136)
+    for dados_logs in cursor.fetchall():
+        print(f"| {dados_logs[0]:^20} | {dados_logs[1]:^35} | {dados_logs[2]:^35} | {dados_logs[3]:^15} | {dados_logs[4]:^15}")
+    print("-" * 136)
     
     input("\nPressione enter para voltar ao menu principal")
     conexao.commit()
@@ -241,7 +225,24 @@ def atualizar_produto():
     Atualiza os dados de um produto no banco de dados, pelo ID
     """
 
-    id, novo_nome, nova_quantidade, novo_preco = input_dados('u') # tratar caso de id não encontrado ANTES de pedir nome, preço, quantidade
+    
+    while True:
+        try:
+            id = int(input("Digite o id do produto que deseja atualizar:\n"))
+            break
+        except:
+            print("\nDigite um número válido!\n")
+            return
+    
+    cursor.execute(f"SELECT * FROM produtos WHERE id = ?", (id, ))
+    dados_produto = cursor.fetchone()
+    conexao.commit()
+
+    if not dados_produto:
+        print("Produto não encontrado")
+        return
+    
+    novo_nome, nova_quantidade, novo_preco = input_dados('c')
 
     cursor.execute(f"""UPDATE produtos SET nome = ?, quantidade = ?, preco = ? WHERE id = ?""", (novo_nome, nova_quantidade, novo_preco, id))
     conexao.commit()
@@ -253,26 +254,44 @@ def atualizar_produto():
 
 
 def excluir_produto():
-    id = input_dados('d')
+    while True:
+        try:
+            id = int(input("Digite o id do produto que deseja excluir:\n"))
+            break
+        except:
+            print("\nDigite um número válido!\n")
+            return
     
-    cursor.execute(f"DELETE FROM produtos WHERE id = ?", (id, )) # tratar caso de id não encontrado
+    cursor.execute(f"SELECT id, nome_usuario FROM produtos WHERE id = ?", (id, ))
+    dados_produto = cursor.fetchone()
     conexao.commit()
+    
+    if bool(dados_produto):
+        nome_produto = dados_produto[1]
+        confirmacao = input(f"Tem certeza que deseja excluir {nome_produto} do sistema? (y/n)\n")
+        if confirmacao == 'y':
+            cursor.execute(f"DELETE FROM produtos WHERE id = ?", (id, ))
+            conexao.commit()
 
 
 def excluir_usuario():
-    try:
-        id = int(input("Digite o id do usuário que deseja excluir:\n"))
-    except:
-        print("ID não encontrado! Retornando...")
-        return
+    while True:
+        try:
+            id = int(input("Digite o id do usuário que deseja excluir:\n"))
+            if id == 1:
+                raise Exception("ID inválido")
+            break
+        except:
+            print("Digite um número válido!")
+            return
     
     cursor.execute(f"SELECT id, nome_usuario FROM usuarios WHERE id = ?", (id, ))
     dados_usuario = cursor.fetchone()
     conexao.commit()
     
-    if dados_usuario and id != 1:
+    if bool(dados_usuario):
         nome_usuario = dados_usuario[1]
-        confirmacao = (f"Tem certeza que deseja excluir {nome_usuario} do sistema? (y/n)\n")
+        confirmacao = input(f"Tem certeza que deseja excluir {nome_usuario} do sistema? (y/n)\n")
         if confirmacao == 'y':
             cursor.execute(f"DELETE FROM usuarios WHERE id = ?", (id, ))
             conexao.commit()
@@ -302,28 +321,25 @@ def area_do_admin(nome_usuario):
         5. Voltar ao menu principal            
                             
             """))
-            break
+
+            match resp:
+                case 1:
+                    adicionar_usuario(nome_usuario, adm=adm)                
+                case 2:
+                    adicionar_log("Listar usuários", nome_usuario)
+                    listar_usuarios()
+                case 3:
+                    adicionar_log("Excluir usuário", nome_usuario)
+                    excluir_usuario()
+                case 4:
+                    adicionar_log("Ver tabela de logs", nome_usuario)
+                    listar_logs()
+                case 5:
+                    return
+                case _:
+                    print("\nDigite uma opção válida!!\n")
         except:
             print("\n\nDigite um número válido!!\n\n")
-        
-    match resp:
-        case 1:
-            adicionar_usuario(nome_usuario, adm=adm)
-            
-            
-        case 2:
-            adicionar_log("Listar usuários", nome_usuario)
-            listar_usuarios()
-        case 3:
-            adicionar_log("Excluir usuário", nome_usuario)
-            excluir_usuario()
-        case 4:
-            adicionar_log("Ver tabela de logs", nome_usuario)
-            ...
-        case 5:
-            return
-        case _:
-            print("Digite uma opção válida!!")
     
 
 def main() -> None:
@@ -342,23 +358,24 @@ def main() -> None:
     
     registro = cursor.fetchone()
     conexao.commit()
-
     if registro:
         senha_criptografada, permissao = registro
+        # loading()
         if bcrypt.checkpw(senha.encode(), senha_criptografada):
             login = True
             print(f"Bem vindo, {nome_usuario}! Login concluído com sucesso!")
         else:
             print("Senha incorreta!")
     else:
-        resp = input("Usuário não encontrado! Deseja fazer um cadastro?: \n1. Sim\n2. Não, sair")
+        resp = int(input("Usuário não encontrado! Deseja fazer um cadastro?: \n1. Sim\n2. Não, sair"))
         match resp:
             case 1:
-                adicionar_usuario()
+                nome_usuario, permissao = adicionar_usuario("")
+                login = True
             case 2:
                 login = False
 
-
+    print(login)
     while login:
         try:
             resp: int = int(input("""Digite o número correspondente à ação que deseja realizar:"
@@ -396,7 +413,7 @@ def main() -> None:
                 case 6: 
                     break
                 case 7:
-                    loading()
+                    # loading()
                     area_do_admin(nome_usuario)
                 case _:
                     print("Digite uma opção válida")
