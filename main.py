@@ -247,7 +247,6 @@ def listar_usuarios():
 
 def pesquisar_produto_nome():
     texto = input("Digite o nome do produto: ")
-    print(texto, len(texto)) # erro 
     cursor.execute(f"SELECT * FROM produtos WHERE nome LIKE '%{texto}%';")
     lista_produtos_achados = cursor.fetchall()
     try:
@@ -256,7 +255,7 @@ def pesquisar_produto_nome():
         print("\n\n\n" + "-" * 133)
         print(f"| {"ID":^30} | {"Produto":^30} | {"Preço":^30} | {"Quantidade":^30} |")
         print("-" * 133)
-        for produto in lista_produtos_achados():
+        for produto in lista_produtos_achados:
             print(f"| {produto[0]:^30} | {produto[1]:^30} | {f'R$ {produto[3]:.2f}'.replace('.', ','):^30} | {produto[2]:^30} |")
         print("-" * 133)
 
@@ -266,7 +265,6 @@ def pesquisar_produto_nome():
     del lista_produtos_achados
 
     input("\nPressione enter para voltar ao menu principal")
-
 
 
 def atualizar_produto():
@@ -469,7 +467,7 @@ def main() -> None:
                     print("Digite uma opção válida")
                 
 
-    print("Tchau") # mensagem de login mais bonita
+    print("Tchau") # mensagem de logout mais bonita
           
 
 if __name__ == "__main__":
