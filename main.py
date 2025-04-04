@@ -1,12 +1,17 @@
-import sqlite3
-import bcrypt
-import os
-import sys
-import datetime
 import csv
+import datetime
+import os
+import sqlite3
+import sys
 from time import sleep
 
+import bcrypt
 
+# usuario 1: pedro_calderon
+# senha: C4Ldwer0NS3nh4ssecreta 
+
+# usuario 2: professor_fabio
+# senha: prof_fabio_senha
 
 conexao = sqlite3.connect('estoque.db')
 cursor = conexao.cursor()
@@ -173,7 +178,7 @@ def exportar_csv():
     path_relatorios = os.path.join(os.getcwd(), "relatorios_de_estoque") # cria um path para a pasta de relatórios
     os.makedirs(path_relatorios, exist_ok=True)
 
-    num_relatorios = len(os.listdir(path_relatorios)) + 1 # verifica quantos relatórios tem
+    num_relatorios = len(listar_csv(os.listdir(path_relatorios))) + 1 # verifica quantos relatórios tem
 
     cursor.execute("SELECT * FROM produtos")
     conexao.commit()
@@ -242,7 +247,8 @@ def listar_usuarios():
 
 def pesquisar_produto_nome():
     texto = input("Digite o nome do produto: ")
-    cursor.execute(f"SELECT * FROM produtos WHERE nome LIKE '%{texto}%'")
+    print(texto, len(texto)) # erro 
+    cursor.execute(f"SELECT * FROM produtos WHERE nome LIKE '%{texto}%';")
     lista_produtos_achados = cursor.fetchall()
     try:
         int(lista_produtos_achados[0][0]) # verifica se o ID do primeiro valor é um número inteiro, se não, é porque é NULL, logo, não existem valores
@@ -391,7 +397,6 @@ def area_do_admin(nome_usuario):
 def main() -> None:
 
     os.system('cls')
-    # criar uma tela inicial bonitinha
     print("*" * 133, "\n\nSISTEMA DE GERENCIAMENTO DE ESTOQUE", "\nBem vindo (a)\n\n", "*" * 133, sep="")
 
     nome_usuario = input("Digite o nome do seu usuário: \n")
@@ -421,7 +426,6 @@ def main() -> None:
             case 2:
                 login = False
 
-    print(login)
     while login:
         try:
             resp: int = int(input("""Digite o número correspondente à ação que deseja realizar:"
@@ -454,7 +458,7 @@ def main() -> None:
                     adicionar_log("Excluir produto", nome_usuario)
                     excluir_produto()
                 case 5:
-                    adicionar_log("Pesquisar produto", nome_usuario)
+                    adicionar_log("Pesquisar produto", nome_usuario) # não está funcionando
                     pesquisar_produto_nome()
                 case 6: 
                     break
@@ -469,18 +473,8 @@ def main() -> None:
           
 
 if __name__ == "__main__":
-    exportar_csv()
-    #main()
-    ...
+    # exportar_csv() # fase de testes ainda
+    main()
 
 conexao.close()
 
-"""with open("products.csv", newline='') as file:
-    reader = list(csv.reader(file))
-    for row in reader[1:]:
-        print(f"{row[1]}: ${row[4]}")"""
-# usuario 1: pedro_calderon
-# senha: C4Ldwer0NS3nh4ssecreta 
-
-# usuario 2: professor_fabio
-# senha: prof_fabio_senha
