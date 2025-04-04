@@ -267,6 +267,43 @@ def pesquisar_produto_nome():
     input("\nPressione enter para voltar ao menu principal")
 
 
+def alterar_usuario(usuario_atual):
+    
+    while True:
+        try:
+            id = int(input("Digite o id do usuario que deseja atualizar:\n"))
+            break
+        except:
+            print("\nDigite um número válido!\n")
+            return
+    
+    cursor.execute(f"SELECT * FROM usuarios WHERE id = ?", (id, ))
+    dados_usuario = cursor.fetchone()
+    conexao.commit()
+
+    if not dados_usuario:
+        print("\nUsuário não encontrado!\n")
+        return
+    
+
+    
+    try:
+        resp = int(input("Digite o número correspondente à permissão desejada para o usuário: \n[1] Admin\n[2] Editor\n[3] Leitor"))
+        if resp > 3 or resp < 1:
+            raise Exception("Número diferente dos possíveis")
+    except:
+        print("\nFalha!! Retornando para o menu de administrador...\n")
+        return
+    nova_permissao = list(permissoes.keys())[resp-1]
+
+    cursor.execute(f"""UPDATE usuarios SET permissao = ? WHERE id = ?""", (nova_permissao, id, ))
+    adicionar_log("Alterar Permissão de Usuário", usuario_atual)
+    conexao.commit()
+
+        
+
+
+
 def atualizar_produto():
     """
     Atualiza os dados de um produto no banco de dados, pelo ID
@@ -291,7 +328,7 @@ def atualizar_produto():
     
     novo_nome, nova_quantidade, novo_preco = input_dados('c')
 
-    cursor.execute(f"""UPDATE produtos SET nome = ?, quantidade = ?, preco = ? WHERE id = ?""", (novo_nome, nova_quantidade, novo_preco, id))
+    cursor.execute("""UPDATE produtos SET nome = ?, quantidade = ?, preco = ? WHERE id = ?""", (novo_nome, nova_quantidade, novo_preco, id))
     conexao.commit()
 
     if cursor.rowcount > 0:
@@ -321,7 +358,7 @@ def excluir_produto():
             conexao.commit()
 
 
-def excluir_usuario():
+def excluir_usuario(usuario_atual):
     while True:
         try:
             id = int(input("Digite o id do usuário que deseja excluir:\n"))
@@ -342,6 +379,7 @@ def excluir_usuario():
         if confirmacao == 'y':
             cursor.execute(f"DELETE FROM usuarios WHERE id = ?", (id, ))
             conexao.commit()
+            adicionar_log("Excluir usuário", usuario_atual)
         
 
 def adicionar_log(acao, usuario):
@@ -364,9 +402,12 @@ def area_do_admin(nome_usuario):
         1. Adicionar usuário
         2. Ver tabela de usuários
         3. Remover Usuário
-        4. Ver tabela de logs       
-        5. Voltar ao menu principal     
-        6. Importar arquivo csv para base de produtos     
+        4. Alterar Permissão de usuário
+        5. Ver logs       
+        6. Importar arquivo csv para base de produtos
+        7. Exportar relatório csv
+        8. Voltar ao menu principal     
+              
                             
             """))
 
@@ -377,15 +418,18 @@ def area_do_admin(nome_usuario):
                     adicionar_log("Listar usuários", nome_usuario)
                     listar_usuarios()
                 case 3:
-                    adicionar_log("Excluir usuário", nome_usuario)
-                    excluir_usuario()
+                    excluir_usuario(nome_usuario)
                 case 4:
+                    alterar_usuario(nome_usuario)
+                case 5:
                     adicionar_log("Ver tabela de logs", nome_usuario)
                     listar_logs()
-                case 5:
-                    return
                 case 6:
-                    importar_csv()
+                    # importar_csv()
+                    print("FUNCIONALIDADE NÃO IMPLEMENTADA")
+                case 7:
+                    adicionar_log("Exportar relatório CSV", nome_usuario)
+                    exportar_csv()
                 case _:
                     print("\nDigite uma opção válida!!\n")
         except:
@@ -456,7 +500,7 @@ def main() -> None:
                     adicionar_log("Excluir produto", nome_usuario)
                     excluir_produto()
                 case 5:
-                    adicionar_log("Pesquisar produto", nome_usuario) # não está funcionando
+                    adicionar_log("Pesquisar produto", nome_usuario)
                     pesquisar_produto_nome()
                 case 6: 
                     break
