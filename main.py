@@ -1,6 +1,8 @@
 import csv
 import datetime
+import msvcrt
 import os
+import random as r
 import sqlite3
 import sys
 from time import sleep
@@ -50,12 +52,13 @@ cursor.execute("""
         );
 """)
 
-permissoes = {'admin': range(1, 8), 'editor': range(1, 7), 'leitor': {2, 5, 6}}
+PERMISSOES = {'admin': range(1, 8), 'editor': range(1, 7), 'leitor': {2, 5, 6}}
 
 listar_csv = lambda arquivos: [arquivo for arquivo in arquivos if arquivo.endswith(".csv")]
 
+
 def loading():
-    for _ in range(135):
+    for _ in range(133):
         print(".", end="")
         sleep(0.05)
     print("\n\n")
@@ -66,14 +69,19 @@ def input_dados(modo, adm = False):
         case 'c':
             while True:
                 nome = input("Digite o nome do seu produto:\n")
-                if len(nome) <= 255:
+                if len(nome) <= 50:
                     break
                 else:
-                    print("Nome muito longo! Digite um nome de 0 a 255 caracteres")
+                    print("Nome muito longo! Digite um nome de 0 a 50 caracteres")
 
             while True:
                 try:
                     quantidade = int(input(f"Digite a quantidade de {nome}:\n"))
+                    if quantidade > 9_223_372_036_854_775_807: 
+                        quantidade = 9_223_372_036_854_775_807
+
+                    if quantidade < 0:
+                        quantidade = 0
                     break
                 except:
                     print("erro, insira um número válido")
@@ -81,6 +89,8 @@ def input_dados(modo, adm = False):
             while True:
                 try:
                     preco = float(input(f"Digite o preco de {nome}:\n"))
+                    if preco > 9_223_372_036_854_775_807: 
+                        preco = 9_223_372_036_854_775_807
                     break
                 except:
                     print("erro, insira um preco válido")
@@ -104,9 +114,9 @@ def input_dados(modo, adm = False):
                     print("\nNome de usuário inválido! Escolha um nome de usuário de 6 a 32 caracteres\n")
 
             while True:
-                senha = input(f"Digite a {'sua' if not adm else ""} senha {"do usuário" if adm else ""}:\n")
+                senha = input(f"Digite a {'sua ' if not adm else ""}senha{" do usuário" if adm else ""}:\n")
                 if len(senha) <= 60 and len(senha) >= 6:
-                    if input(f"Repita a {'sua' if not adm else ""} senha {"do usuário" if adm else ""}:\n") == senha:
+                    if input(f"Repita a {'sua ' if not adm else ""}senha{" do usuário" if adm else ""}:\n") == senha:
                         break
                     else:
                         print("\nSenhas diferentes!! Tente novamente\n")
@@ -123,9 +133,13 @@ def input_dados(modo, adm = False):
             else:
                 permissao = 'leitor'
             return nome_usuario, senha, permissao
+        case _:
+            print("Passe um parâmetro válido\n")
+            return
 
                            
 def adicionar_usuario(nome_usuario_atual, adm = False):
+    permissao = 'leitor'
     nome_usuario_novo, senha, permissao = input_dados('add_usuario', adm=adm)
 
     senha_criptografada = bcrypt.hashpw(senha.encode(), bcrypt.gensalt())
@@ -157,10 +171,24 @@ def importar_csv():
 
     
     try:
-        arquivo_para_importar = lista_arquivos[int(input()) - 1]
+        arquivo_para_importar = lista_arquivos[int(msvcrt.getwche()) - 1]
     except:
-        print("Não foi possível concluir a operação")
+        print("\nNão foi possível concluir a operação")
+        print("Pressione qualquer tecla para retornar\n")
+        msvcrt.getwche()
+        print("\n")
         return
+    
+    with open(arquivo_para_importar, 'r', newline = '', encoding='utf-8') as file:
+        conteudo  = csv.reader(file)
+        for row in conteudo:
+            nome, preco = row[1], row[4]
+            qtde = r.randint(50, 1000)
+            cursor.execute("INSERT INTO produtos(nome, quantidade, preco) VALUES (?, ?, ?);", (nome, qtde, preco, ))
+            conexao.commit()
+
+
+
     
     # continuar depois
 
@@ -189,8 +217,6 @@ def exportar_csv():
         writer.writerows(cursor.fetchall())
 
 
-
-
 def inserir_produto():
     nome, quantidade, preco = input_dados('c')
     try:
@@ -208,16 +234,17 @@ def inserir_produto():
 
 def listar_produtos():
     cursor.execute("SELECT * FROM produtos")
-    print("\n\n\n" + "-" * 133)
-    print(f"| {"ID":^30} | {"Produto":^30} | {"Preço":^30} | {"Quantidade":^30} |")
-    print("-" * 133)
+    print("\n\n\n" + "-" * 153)
+    print(f"| {"ID":^30} | {"Produto":^50} | {"Preço":^30} | {"Quantidade":^30} |")
+    print("-" * 153)
     for produto in cursor.fetchall():
-        print(f"| {produto[0]:^30} | {produto[1]:^30} | {f'R$ {produto[3]:.2f}'.replace('.', ','):^30} | {produto[2]:^30} |")
-    print("-" * 133)
+        print(f"| {produto[0]:^30} | {produto[1]:^50} | {f'R$ {produto[3]:.2f}'.replace('.', ','):^30} | {produto[2]:^30} |")
+    print("-" * 153)
     
-    input("\nPressione enter para voltar ao menu principal")
     conexao.commit()
-
+    print("Pressione qualquer tecla para retornar")
+    msvcrt.getwche()
+    return
 
 def listar_logs():
     cursor.execute("SELECT * FROM logs")
@@ -228,8 +255,10 @@ def listar_logs():
         print(f"| {dados_logs[0]:^20} | {dados_logs[1]:^35} | {dados_logs[2]:^35} | {dados_logs[3]:^15} | {dados_logs[4]:^15}")
     print("-" * 136)
     
-    input("\nPressione enter para voltar ao menu principal")
     conexao.commit()
+    msvcrt.getwche()
+    print("Pressione qualquer tecla para retornar")
+    return
 
 
 def listar_usuarios():
@@ -241,9 +270,11 @@ def listar_usuarios():
         print(f"| {dados_usuario[0]:^32} | {dados_usuario[1]:^55} | {dados_usuario[3]:^15} |")
     print("-" * 112)
     
-    input("\nPressione enter para voltar ao menu principal")
     conexao.commit()
 
+    print("\nPressione qualquer tecla para retornar")
+    msvcrt.getwche()
+    return
 
 def pesquisar_produto_nome():
     texto = input("Digite o nome do produto: ")
@@ -252,56 +283,67 @@ def pesquisar_produto_nome():
     try:
         int(lista_produtos_achados[0][0]) # verifica se o ID do primeiro valor é um número inteiro, se não, é porque é NULL, logo, não existem valores
 
-        print("\n\n\n" + "-" * 133)
-        print(f"| {"ID":^30} | {"Produto":^30} | {"Preço":^30} | {"Quantidade":^30} |")
-        print("-" * 133)
+        print("\n\n\n" + "-" * 153)
+        print(f"| {"ID":^30} | {"Produto":^50} | {"Preço":^30} | {"Quantidade":^30} |")
+        print("-" * 153)
         for produto in lista_produtos_achados:
-            print(f"| {produto[0]:^30} | {produto[1]:^30} | {f'R$ {produto[3]:.2f}'.replace('.', ','):^30} | {produto[2]:^30} |")
-        print("-" * 133)
+            print(f"| {produto[0]:^30} | {produto[1]:^50} | {f'R$ {produto[3]:.2f}'.replace('.', ','):^30} | {produto[2]:^30} |")
+        print("-" * 153)
 
     except:
         print("\nNenhum produto foi encontrado.")
     
     del lista_produtos_achados
 
-    input("\nPressione enter para voltar ao menu principal")
+    print("Pressione qualquer tecla para retornar")
+    msvcrt.getwche()
+    return
 
 
-def alterar_usuario(usuario_atual):
-    
+def atualizar_usuario(usuario_atual):
     while True:
         try:
             id = int(input("Digite o id do usuario que deseja atualizar:\n"))
+            if id == 1:
+                raise Exception("Impossível excluir o usuário Master!")
             break
         except:
-            print("\nDigite um número válido!\n")
+            print("\nDigite um número válido!")
+            print("Pressione qualquer tecla para retornar")
+            msvcrt.getwche()
+            print("\n")
             return
     
     cursor.execute(f"SELECT * FROM usuarios WHERE id = ?", (id, ))
     dados_usuario = cursor.fetchone()
     conexao.commit()
+    if dados_usuario[1] == usuario_atual:
+        print("Erro! Você não pode atualizar sua própria permissão!")
+        print("Pressione qualquer tecla para retornar")
+        msvcrt.getwche()
+        return
 
     if not dados_usuario:
         print("\nUsuário não encontrado!\n")
+        print("Pressione qualquer tecla para retornar")
+        msvcrt.getwche()
         return
-    
 
-    
     try:
         resp = int(input("Digite o número correspondente à permissão desejada para o usuário: \n[1] Admin\n[2] Editor\n[3] Leitor"))
         if resp > 3 or resp < 1:
             raise Exception("Número diferente dos possíveis")
     except:
-        print("\nFalha!! Retornando para o menu de administrador...\n")
+        print("\nDigite um número válido!!")
+        print("Pressione qualquer tecla para retornar")
+        msvcrt.getwche()
         return
-    nova_permissao = list(permissoes.keys())[resp-1]
+    
+    nova_permissao = list(PERMISSOES.keys())[resp-1]
 
     cursor.execute(f"""UPDATE usuarios SET permissao = ? WHERE id = ?""", (nova_permissao, id, ))
     adicionar_log("Alterar Permissão de Usuário", usuario_atual)
     conexao.commit()
-
-        
-
 
 
 def atualizar_produto():
@@ -332,9 +374,11 @@ def atualizar_produto():
     conexao.commit()
 
     if cursor.rowcount > 0:
-        print("produto atualizado com sucesso")
+        print("Produto atualizado com sucesso!! ")
     else:
-        print("produto não encontrado")
+        print("Produto não encontrado!!")
+    print("Pressione qualquer tecla para retornar")
+    msvcrt.getwche()
 
 
 def excluir_produto():
@@ -346,16 +390,20 @@ def excluir_produto():
             print("\nDigite um número válido!\n")
             return
     
-    cursor.execute(f"SELECT id, nome_usuario FROM produtos WHERE id = ?", (id, ))
+    cursor.execute(f"SELECT id, nome FROM produtos WHERE id = ?", (id, ))
     dados_produto = cursor.fetchone()
     conexao.commit()
     
     if bool(dados_produto):
         nome_produto = dados_produto[1]
         confirmacao = input(f"Tem certeza que deseja excluir {nome_produto} do sistema? (y/n)\n")
-        if confirmacao == 'y':
+        if confirmacao.lower() == 'y':
             cursor.execute(f"DELETE FROM produtos WHERE id = ?", (id, ))
             conexao.commit()
+    else:
+        print("Produto não encontrado!! Digite um ID Válido")
+        print("Pressione qualquer tecla para retornar")
+        msvcrt.getwche()
 
 
 def excluir_usuario(usuario_atual):
@@ -375,11 +423,21 @@ def excluir_usuario(usuario_atual):
     
     if bool(dados_usuario):
         nome_usuario = dados_usuario[1]
+
+        if nome_usuario == usuario_atual:
+            print("Erro! Você não pode atualizar sua própria permissão!")
+            print("Pressione qualquer tecla para retornar")
+            msvcrt.getwche()
+            return
+
         confirmacao = input(f"Tem certeza que deseja excluir {nome_usuario} do sistema? (y/n)\n")
-        if confirmacao == 'y':
+        if confirmacao.lower() == 'y':
             cursor.execute(f"DELETE FROM usuarios WHERE id = ?", (id, ))
             conexao.commit()
             adicionar_log("Excluir usuário", usuario_atual)
+    else:
+        print("\nUsuário não encontrado na base de dados! Pressione qualquer tecla para retornar:\n")
+        msvcrt.getwche() # pega qualquer tecla do usuario imediatamente, sem a necessidade de enter
         
 
 def adicionar_log(acao, usuario):
@@ -395,7 +453,7 @@ def area_do_admin(nome_usuario):
     adm = True
     while True:
         try:
-            resp = int(input("""\n\n\n
+            print("""\n\n\n
                     * * * ÁREA DO ADMINISTRADOR * * *
                     
                     Digite o número correspondente à ação que deseja realizar:\n\n
@@ -409,7 +467,9 @@ def area_do_admin(nome_usuario):
         8. Voltar ao menu principal     
               
                             
-            """))
+            """)
+            resp: int = int(msvcrt.getwche())
+            print("\n")
 
             match resp:
                 case 1:
@@ -420,57 +480,82 @@ def area_do_admin(nome_usuario):
                 case 3:
                     excluir_usuario(nome_usuario)
                 case 4:
-                    alterar_usuario(nome_usuario)
+                    atualizar_usuario(nome_usuario)
                 case 5:
                     adicionar_log("Ver tabela de logs", nome_usuario)
                     listar_logs()
                 case 6:
-                    # importar_csv()
-                    print("FUNCIONALIDADE NÃO IMPLEMENTADA")
+                    adicionar_log("Exportar relatório CSV", nome_usuario)
+                    importar_csv()
                 case 7:
                     adicionar_log("Exportar relatório CSV", nome_usuario)
                     exportar_csv()
+                case 8:
+                    loading()
+                    break
                 case _:
                     print("\nDigite uma opção válida!!\n")
         except:
-            print("\n\nDigite um número válido!!\n\n")
+            print("\n\nDigite um número válido!!")
+            print("Pressione qualquer tecla para continuar")
+            msvcrt.getwche()
     
 
 def main() -> None:
 
     os.system('cls')
+
+    cursor.execute("SELECT * FROM produtos")
+    if not cursor.fetchone():
+        print("Deseja importar uma base de produtos existente? (y/n)")
+        resp = msvcrt.getche()
+        if resp.lower() == "y":
+            importar_csv()
+    print("\n\n")
+
+    # LOGIN
+
     print("*" * 133, "\n\nSISTEMA DE GERENCIAMENTO DE ESTOQUE", "\nBem vindo (a)\n\n", "*" * 133, sep="")
-
     nome_usuario = input("Digite o nome do seu usuário: \n")
-    senha = input("\n" + "*" * 133 + "\n\nDigite sua senha: \n")
-    print("*" * 133)
+    print("\n" + "*" * 133 + "\n")
+    while True:
+        senha = input("\nDigite sua senha: \n")
+        print("*" * 133)
 
-    cursor.execute("""
-        SELECT senha, permissao FROM usuarios WHERE nome_usuario = ?
-""", (nome_usuario, ))
-    
-    registro = cursor.fetchone()
-    conexao.commit()
-    if registro:
-        senha_criptografada, permissao = registro
-        loading()
-        if bcrypt.checkpw(senha.encode(), senha_criptografada):
-            login = True
-            print(f"Bem vindo, {nome_usuario}! Login concluído com sucesso!")
-        else:
-            print("Senha incorreta!")
-    else:
-        resp = int(input("Usuário não encontrado! Deseja fazer um cadastro?: \n1. Sim\n2. Não, sair"))
-        match resp:
-            case 1:
-                nome_usuario, permissao = adicionar_usuario("")
+        cursor.execute("""
+            SELECT senha, permissao FROM usuarios WHERE nome_usuario = ?
+    """, (nome_usuario, ))
+        
+        registro = cursor.fetchone()
+        conexao.commit()
+        if registro:
+            senha_criptografada, permissao = registro
+            loading()
+            if bcrypt.checkpw(senha.encode(), senha_criptografada):
                 login = True
-            case 2:
+                print(f"Bem vindo, {nome_usuario}! Login concluído com sucesso!")
+                break
+            else:
+                print("Senha incorreta!")
+                print("Pressione qualquer tecla para tentar de novo (pressione 1 se quiser sair)")
+                tecla = msvcrt.getwche()
                 login = False
+                if tecla == '1':
+                    break
+        else:
+            resp = int(input("Usuário não encontrado! Deseja fazer um cadastro?: \n1. Sim\n2. Não, sair"))
+            match resp:
+                case 1:
+                    nome_usuario, permissao = adicionar_usuario("")
+                    login = True
+                    break
+                case 2:
+                    login = False
+                    break
 
     while login:
         try:
-            resp: int = int(input("""Digite o número correspondente à ação que deseja realizar:"
+            print("""\nDigite o número correspondente à ação que deseja realizar:
             1. Adicionar produto
             2. Listar produtos
             3. Atualizar produto
@@ -478,12 +563,15 @@ def main() -> None:
             5. Pesquisa por nome
             6. Sair
             7. Área do administrador
-        \n"""))
+        \n""")
+            resp: int = int(msvcrt.getwche())
+            
         except:
             resp = 0
             print("\nDigite um número válido")
+        print("\n")
         
-        if resp not in permissoes[permissao]:
+        if resp not in PERMISSOES[permissao]:
             print("\nVocê não tem autorização para realizar essa ação!!\n")
         else:
             match resp:
@@ -510,12 +598,16 @@ def main() -> None:
                 case _:
                     print("Digite uma opção válida")
                 
+    print()
+    print("\n\nObrigado por utilizar o sistema!")
 
-    print("Tchau") # mensagem de logout mais bonita
+    data_logoff = datetime.datetime.now()
+    
+    print(data_logoff.strftime("Hora de saída: %H:%M"))
+    print("Feito por Pedro Calderón")
           
 
 if __name__ == "__main__":
-    # exportar_csv() # fase de testes ainda
     main()
 
 conexao.close()
