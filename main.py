@@ -4,7 +4,6 @@ import msvcrt
 import os
 import random as r
 import sqlite3
-import sys
 from time import sleep
 
 import bcrypt
@@ -51,6 +50,7 @@ cursor.execute("""
         hora TEXT NOT NULL
         );
 """)
+conexao.commit()
 
 PERMISSOES = {'admin': range(1, 8), 'editor': range(1, 7), 'leitor': {2, 5, 6}}
 
@@ -69,7 +69,9 @@ def input_dados(modo, adm = False):
         case 'c':
             while True:
                 nome = input("Digite o nome do seu produto:\n")
-                if len(nome) <= 50:
+                if nome == '\n':
+                    print("Nome vazio!! Digite um nome válido!")
+                if len(nome) <= 50 and len(nome) > 2:
                     break
                 else:
                     print("Nome muito longo! Digite um nome de 0 a 50 caracteres")
@@ -124,12 +126,18 @@ def input_dados(modo, adm = False):
                     print("\nSenha inválida! Escolha uma senha entre 6 a 60 caracteres\n")
 
             if adm:
-                while True:
-                    permissao = input("Digite a permissão desse usuário (leitor, editor ou admin): ").lower()
-                    if permissao not in {'admin', 'leitor', 'editor'}:
-                        print("Digite uma permissão válida! ")
-                    else:
-                        break
+                try:
+                    print("Digite o número correspondente à permissão desejada para o usuário: \n[1] Admin\n[2] Editor\n[3] Leitor")
+                    resp = int(msvcrt.getwche())
+                    if resp > 3 or resp < 1:
+                        raise Exception("Número diferente dos possíveis")
+                except:
+                    print("\nDigite um número válido!!")
+                    print("Pressione qualquer tecla para retornar")
+                    msvcrt.getwche()
+                    return
+                
+                permissao = list(PERMISSOES.keys())[resp-1]
             else:
                 permissao = 'leitor'
             return nome_usuario, senha, permissao
@@ -180,8 +188,8 @@ def importar_csv():
         return
     
     with open(arquivo_para_importar, 'r', newline = '', encoding='utf-8') as file:
-        conteudo  = csv.reader(file)
-        for row in conteudo:
+        conteudo  = list(csv.reader(file))
+        for row in conteudo[1:]:
             nome, preco = row[1], row[4]
             qtde = r.randint(50, 1000)
             cursor.execute("INSERT INTO produtos(nome, quantidade, preco) VALUES (?, ?, ?);", (nome, qtde, preco, ))
@@ -245,6 +253,7 @@ def listar_produtos():
     print("Pressione qualquer tecla para retornar")
     msvcrt.getwche()
     return
+
 
 def listar_logs():
     cursor.execute("SELECT * FROM logs")
@@ -330,7 +339,8 @@ def atualizar_usuario(usuario_atual):
         return
 
     try:
-        resp = int(input("Digite o número correspondente à permissão desejada para o usuário: \n[1] Admin\n[2] Editor\n[3] Leitor"))
+        print("Digite o número correspondente à permissão desejada para o usuário: \n[1] Admin\n[2] Editor\n[3] Leitor")
+        resp = int(msvcrt.getwche())
         if resp > 3 or resp < 1:
             raise Exception("Número diferente dos possíveis")
     except:
@@ -344,6 +354,7 @@ def atualizar_usuario(usuario_atual):
     cursor.execute(f"""UPDATE usuarios SET permissao = ? WHERE id = ?""", (nova_permissao, id, ))
     adicionar_log("Alterar Permissão de Usuário", usuario_atual)
     conexao.commit()
+
 
 
 def atualizar_produto():
@@ -396,7 +407,8 @@ def excluir_produto():
     
     if bool(dados_produto):
         nome_produto = dados_produto[1]
-        confirmacao = input(f"Tem certeza que deseja excluir {nome_produto} do sistema? (y/n)\n")
+        print(f"Tem certeza que deseja excluir {nome_produto} do sistema? (y/n)\n")
+        confirmacao = msvcrt.getwche()
         if confirmacao.lower() == 'y':
             cursor.execute(f"DELETE FROM produtos WHERE id = ?", (id, ))
             conexao.commit()
@@ -430,7 +442,8 @@ def excluir_usuario(usuario_atual):
             msvcrt.getwche()
             return
 
-        confirmacao = input(f"Tem certeza que deseja excluir {nome_usuario} do sistema? (y/n)\n")
+        print(f"Tem certeza que deseja excluir {nome_usuario} do sistema? (y/n)\n")
+        confirmacao = msvcrt.getwche()
         if confirmacao.lower() == 'y':
             cursor.execute(f"DELETE FROM usuarios WHERE id = ?", (id, ))
             conexao.commit()
@@ -462,9 +475,8 @@ def area_do_admin(nome_usuario):
         3. Remover Usuário
         4. Alterar Permissão de usuário
         5. Ver logs       
-        6. Importar arquivo csv para base de produtos
-        7. Exportar relatório csv
-        8. Voltar ao menu principal     
+        6. Exportar relatório csv
+        7. Voltar ao menu principal     
               
                             
             """)
@@ -486,11 +498,8 @@ def area_do_admin(nome_usuario):
                     listar_logs()
                 case 6:
                     adicionar_log("Exportar relatório CSV", nome_usuario)
-                    importar_csv()
-                case 7:
-                    adicionar_log("Exportar relatório CSV", nome_usuario)
                     exportar_csv()
-                case 8:
+                case 7:
                     loading()
                     break
                 case _:
@@ -505,15 +514,38 @@ def main() -> None:
 
     os.system('cls')
 
+    ############## INICIALIZANDO BASE DE DADOS #####################
+
+# inserindo os usuários fábio e pedro na base de dados
+    cursor.execute("SELECT * FROM usuarios")
+    if not cursor.fetchone():
+        senha = "C4Ldwer0NS3nh4ssecreta"
+        senha_criptografada = bcrypt.hashpw(senha.encode(), bcrypt.gensalt())
+    
+        cursor.execute(f"""
+            INSERT INTO usuarios (nome_usuario, senha, permissao)
+            VALUES
+            ('pedro_calderon', ?, 'admin');
+        """, (senha_criptografada, ))
+        conexao.commit()
+        senha = "prof_fabio_senha"
+        senha_criptografada = bcrypt.hashpw(senha.encode(), bcrypt.gensalt())
+        cursor.execute(f"""
+            INSERT INTO usuarios (nome_usuario, senha, permissao)
+            VALUES
+            ('professor_fabio', ?, 'admin');
+        """, (senha_criptografada, ))
+        conexao.commit()     
+
     cursor.execute("SELECT * FROM produtos")
     if not cursor.fetchone():
         print("Deseja importar uma base de produtos existente? (y/n)")
         resp = msvcrt.getche()
-        if resp.lower() == "y":
+        if resp.lower() == b"y":
             importar_csv()
     print("\n\n")
 
-    # LOGIN
+    ########################### LOGIN ###############################
 
     print("*" * 133, "\n\nSISTEMA DE GERENCIAMENTO DE ESTOQUE", "\nBem vindo (a)\n\n", "*" * 133, sep="")
     nome_usuario = input("Digite o nome do seu usuário: \n")
@@ -543,7 +575,8 @@ def main() -> None:
                 if tecla == '1':
                     break
         else:
-            resp = int(input("Usuário não encontrado! Deseja fazer um cadastro?: \n1. Sim\n2. Não, sair"))
+            print("Usuário não encontrado! Deseja fazer um cadastro?: \n1. Sim\n2. Não, sair\n\n")
+            resp = int(msvcrt.getwche())
             match resp:
                 case 1:
                     nome_usuario, permissao = adicionar_usuario("")
@@ -552,6 +585,8 @@ def main() -> None:
                 case 2:
                     login = False
                     break
+
+    ################################### MENU ################################################
 
     while login:
         try:
@@ -565,7 +600,7 @@ def main() -> None:
             7. Área do administrador
         \n""")
             resp: int = int(msvcrt.getwche())
-            
+
         except:
             resp = 0
             print("\nDigite um número válido")
@@ -598,7 +633,6 @@ def main() -> None:
                 case _:
                     print("Digite uma opção válida")
                 
-    print()
     print("\n\nObrigado por utilizar o sistema!")
 
     data_logoff = datetime.datetime.now()
@@ -611,4 +645,3 @@ if __name__ == "__main__":
     main()
 
 conexao.close()
-
